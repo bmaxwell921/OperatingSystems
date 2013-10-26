@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
 #include "lib-ult.h"
-#include <sched.h>
+//#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ucontext.h>
-#include <semaphore.h>
+//#include <ucontext.h>
+//#include <semaphore.h>
 #define TRUE 1
 #define FALSE 0
 
@@ -19,11 +19,14 @@ typedef struct Node {
 	void (*toRun)();
 
 	struct Node* next;
+	struct Node* prev;
 } Node;
 // ---------------------------------------------------------------
 
 // PROTOTYPES
 // ---------------------------------------------------------------
+// Constructor for the queue
+void initQueue();
 // Mallocs, assigns, and returns a Node with the given info
 Node* initNode(ContextPtr context, int prio, int t, void (*f)());
 
@@ -32,19 +35,24 @@ void addNode(Node* n);
 
 // Removes the node with the 
 Node* removeNode();
+
+// Prints the Queue to the console
+void printQueue();
+void printNode(Node* n);
 // ---------------------------------------------------------------
 
 // FIELDS
 // ---------------------------------------------------------------
 // Used to lock number of threads
-sem_t lock;
+//sem_t lock;
 
 int MAX_THREADS;
 int numThreads;
 
 
-// Dummy head for the queue of nodes
+// Dummy head and tail for the queue of nodes
 Node* head;
+Node* tail;
 // Use this variable to set t for nodes
 int t;
 
@@ -62,9 +70,7 @@ void system_init(int max_number_of_klt) {
 	MAX_THREADS = max_number_of_klt;
 	numThreads = 0;
 
-	// Init Queue
-	head = initNode(NULL, 0, 0, NULL);
-	t = 0;
+	initQueue();	
 
 	initProp = TRUE;
 }
@@ -75,6 +81,15 @@ void system_init(int max_number_of_klt) {
 
 // QUEUE METHODS
 // ---------------------------------------------------------------
+void initQueue() {
+	head = initNode(NULL, 0, 0, NULL);
+	tail = initNode(NULL, 0, 0, NULL);
+	head->next = tail;
+	tail->prev = head;
+
+	t = 0;
+}
+
 Node* initNode(ContextPtr context, int prio, int t, void (*f)()) {
 	Node* ret = (Node*) malloc(sizeof(Node));
 	ret->context = context;
@@ -82,16 +97,22 @@ Node* initNode(ContextPtr context, int prio, int t, void (*f)()) {
 	ret->t = t;
 	ret->toRun = f;
 	ret->next = NULL;
+	ret->prev = NULL;
+	return ret;
 }
 
 void addNode(Node* n) {
-	// Queue itself is out of order, remove method will have
-	// to find the right place
+	// We always add to the front, remove will have to find the correct Node
 	n->next = head->next;
+	n->prev = head;
+
+	head->next->prev = n;
 	head->next = n;
 }
 
 Node* removeNode() {
+	Node* min;
+	Node* cur;
 	// Find the node with the lowest priority number. 
 	// Break ties by taking smaller t
 	if (head->next == NULL) {
@@ -104,16 +125,58 @@ Node* removeNode() {
 	* and lowest t
 	*/
 
-	Node* min = head->next;
-	Node* cur = head->next;
-	while (cur) {
+	min = head->next;
+	cur = head->next;
+
+	// Find the node to remove
+	while (cur != tail) {
 		if (cur->priority < min->priority
-			|| cur->priority == min->priority && cur->t < min->t) {
+				|| cur->priority == min->priority && cur->t < min->t) {
 			min = cur;
 		}
 		cur = cur->next;
 	}
 
+	// Actually remove it from the queue
+	min->prev->next = min->next;
+	min->next->prev = min->prev;
+
+	// Set these to NULL so when we delete the Node it doesn't do crazy stuff
+	min->prev = NULL;
+	min->next = NULL;
+
+	return min;
+}
+
+void printQueue() {
+	Node* cur = head;
+	while (cur) {
+		printNode(cur);
+		cur = cur->next;
+	}
+}
+
+void printNode(Node* n) {
+	printf("Node with t:%d\n", n->t);
 }
 
 // ---------------------------------------------------------------
+//int main(int argc, char** argv) {
+//	Node* n;
+//	int i;
+//	initQueue();
+//	t = 1;
+//	
+//	for (i = 0; i < 2; ++i) {
+//		n = initNode(NULL, 0, t++, NULL);
+//		addNode(n);
+//		printQueue();
+//		printf("\n");
+//	}
+//
+//	n = removeNode();
+//
+//	free(n);
+//
+//	printf("");
+//}
