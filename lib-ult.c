@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
 #include "lib-ult.h"
-//#include <sched.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-//#include <ucontext.h>
-//#include <semaphore.h>
+#include <ucontext.h>
+#include <semaphore.h>
 #define TRUE 1
 #define FALSE 0
 
@@ -44,7 +44,7 @@ void printNode(Node* n);
 // FIELDS
 // ---------------------------------------------------------------
 // Used to lock number of threads
-//sem_t lock;
+sem_t lock;
 
 int MAX_THREADS;
 int numThreads;
