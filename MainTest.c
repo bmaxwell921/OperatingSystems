@@ -1,4 +1,4 @@
-#include "lib-ult.c"
+#include "lib-ult.char"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,12 +12,6 @@ int main(int argc, char** argv) {
 	uthread_create(runSecond, 2);
 	uthread_create(runThird, 2);
 }
-
-
-
-
-
-
 
 /* Priority 1 -> 3 */
 void runFirst() {
