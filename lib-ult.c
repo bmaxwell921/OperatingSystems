@@ -16,7 +16,7 @@ int DEBUGGING = 1;
 * ---------------------------------------------------------------
 */
 typedef struct Node {
-	ucontext_t* context;
+	ucontext_t context;
 	int priority;
 	int t; /* Used to break ties */
 	
@@ -34,7 +34,7 @@ typedef struct Node {
 void initQueue();
 
 /* Mallocs, assigns, and returns a Node with the given info */
-Node* initNode(ucontext_t* context, int prio, int t);
+Node* initNode(ucontext_t context, int prio, int t);
 
 /* Adds the given Node to the list starting with head */
 void addNode(Node* n);
@@ -60,6 +60,7 @@ int wrapperFunc(void* func());
 * FIELDS
 * ---------------------------------------------------------------
 */
+int STACK_SIZE = 16384;
 
 /* Used to lock number of threads */
 sem_t lock;
@@ -118,7 +119,7 @@ int uthread_create(void func(), int pri_num) {
 	if (numThreads < MAX_THREADS) {
 		++numThreads;
 		if (DEBUGGING) {
-			printf("Enough threads left...firing it up!\n");
+			printf("\tDEBUG: Enough threads left...firing it up!\n");
 		}
 		sem_post(&lock);
 		
@@ -128,14 +129,14 @@ int uthread_create(void func(), int pri_num) {
 	}
 
 	if (DEBUGGING) {
-		printf("Not enough threads left, throwing it in the queue\n");
+		printf("\tDEBUG: Not enough threads left, throwing it in the queue\n");
 	}
 	/* Otherwise we'll need to put this guy into the queue to wait until someone else is done */
 	if(setUpContext(newCont, func) == FAILURE) {
 		return FAILURE;
 	}
 
-	n = initNode(&newCont, pri_num, t);
+	n = initNode(newCont, pri_num, t);
 	addNode(n);
 	sem_post(&lock);
 	return 0;
@@ -145,7 +146,7 @@ int setUpContext(ucontext_t ucp, void func()) {
 	if(getcontext(&ucp) == FAILURE) {
 		return FAILURE;
 	}
-	ucp.uc_stack.ss_sp = (void*) malloc(16384);
+	ucp.uc_stack.ss_sp = malloc(16384);
 	ucp.uc_stack.ss_size = 16384;
 	makecontext(&ucp, func, 0);
 
@@ -153,8 +154,8 @@ int setUpContext(ucontext_t ucp, void func()) {
 }
 
 void runFunction(void (*func)()) {
-	void* stack = (void*) malloc(16384); 
-	stack += 16383;
+	void* stack = (void*) malloc(STACK_SIZE); 
+	stack += STACK_SIZE;
 
 	/*
 	* clone's first parameter is
@@ -176,8 +177,9 @@ int wrapperFunc(void* func()) {
 
 int uthread_yield(int pri_num) {
 	ucontext_t ucp;
-	ucontext_t* runNext;
+	ucontext_t runNext;
 	Node* n;
+	Node* nextNode;
 
 	if (initProp != TRUE) {
 		printf("ERROR: Threading library improperly started: system_init must be called first!");
@@ -194,53 +196,64 @@ int uthread_yield(int pri_num) {
 
 	sem_wait(&lock);
 
-	n = initNode(&ucp, pri_num, t);
+	n = initNode(ucp, pri_num, t);
 	addNode(n);
 
 	/* Get the context with the lowest priority number so we can run it */
-	n = removeNode();
+	nextNode = removeNode();
 
 	/* TODO free n here to prevent a memory leak? */
-	runNext = n->context;
+	runNext = nextNode->context;
 	/* n->context = NULL;
 	* free(n);
 	*/
 
 
 	if (DEBUGGING) {
-		printf("Should start running:\n\t");
+		printf("\tDEBUG: Should start running:\n\t");
 		printNode(n);
 	}
 
 	sem_post(&lock);
 
 	/* Then run it, updating ucp so when we get back to that context we start at the return */
-	if (swapcontext(&ucp, n->context) == FAILURE) {
-		return FAILURE;
-	}
-
-	/* A successful run of swapcontext shouldn't return until runNext's process completes*/
-	return 0;
+	return swapcontext(&ucp, &runNext);
 }
 
 void uthread_exit() {
 	Node* n;
+	ucontext_t runNext;
+
+	if (initProp != TRUE) {
+		printf("ERROR: Threading library improperly started: system_init must be called first!");
+		return1;
+	}
 
 	sem_wait(&lock);
 	/* Get the next thing to run */
 	n = removeNode();
+	runNext = n->context;
 
 	/* Make sure to update numThreads */
 	--numThreads;
 
 	/* Nothing more to run */
 	if (n == NULL) {
+		if (DEBUGGING) {
+			printf("\tDEBUG: There was nothing left to run.");
+		}
+		exit(0);
 		return;
+	}
+
+	if (DEBUGGING) {
+		printf("\tDEBUG: Running something new:\n\t");
+		printNode(n);
 	}
 
 	sem_post(&lock);
 
-	setcontext(n->context);
+	setcontext(&runNext);
 }
 /* --------------------------------------------------------------- */
 
@@ -251,15 +264,16 @@ void uthread_exit() {
 * ---------------------------------------------------------------
 */
 void initQueue() {
-	head = initNode(NULL, 0, 0);
-	tail = initNode(NULL, 0, 0);
+	ucontext_t empty;
+	head = initNode(empty, 0, 0);
+	tail = initNode(empty, 0, 0);
 	head->next = tail;
 	tail->prev = head;
 
 	t = 0;
 }
 
-Node* initNode(ucontext_t* context, int prio, int t) {
+Node* initNode(ucontext_t context, int prio, int t) {
 	Node* ret = (Node*) malloc(sizeof(Node));
 	ret->context = context;
 	ret->priority = prio;
@@ -327,5 +341,6 @@ void printQueue() {
 
 void printNode(Node* n) {
 	printf("Node with priority:%d and t:%d\n", n->priority, n->t);
+	/* printf("Context is null?:%d\n", n->context); */
 }
 /* --------------------------------------------------------------- */
