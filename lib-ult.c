@@ -7,17 +7,17 @@
 #include <semaphore.h>
 #define TRUE 1
 #define FALSE 0
+#define FAILURE -1
+
+int DEBUGGING = 1;
 
 // TYPEDEFS
 // ---------------------------------------------------------------
-typedef struct ucontext* ContextPtr;
-
 typedef struct Node {
-	ContextPtr context;
+	ucontext_t* context;
 	int priority;
 	int t; // Used to break ties
-	void (*toRun)();
-
+	
 	struct Node* next;
 	struct Node* prev;
 } Node;
@@ -28,7 +28,7 @@ typedef struct Node {
 // Constructor for the queue
 void initQueue();
 // Mallocs, assigns, and returns a Node with the given info
-Node* initNode(ContextPtr context, int prio, int t, void (*f)());
+Node* initNode(ucontext_t* context, int prio, int t);
 
 // Adds the given Node to the list starting with head
 void addNode(Node* n);
@@ -39,6 +39,8 @@ Node* removeNode();
 // Prints the Queue to the console
 void printQueue();
 void printNode(Node* n);
+
+int setUpContext(ucontext_t ucp, void (*f)());
 // ---------------------------------------------------------------
 
 // FIELDS
@@ -67,6 +69,9 @@ void system_init(int max_number_of_klt) {
 			max_number_of_klt);
 		return;
 	}
+
+	sem_init(&lock, 0, 1);
+
 	MAX_THREADS = max_number_of_klt;
 	numThreads = 0;
 
@@ -75,6 +80,66 @@ void system_init(int max_number_of_klt) {
 	initProp = TRUE;
 }
 
+int uthread_create(void func(), int pri_num) {
+	// Context we'll use for the function
+	ucontext_t newCont;
+	if (initProp != TRUE) {
+		printf("ERROR: Threading library improperly started: system_init must be called first!");
+		return FAILURE;
+	}
+
+	if(setUpContext(newCont, func) == FAILURE) {
+		return FAILURE;
+	}
+
+	// lock the number of threads
+	sem_wait(&lock);
+	++numThreads;
+
+	/*
+	* Go ahead and run the function if we haven't hit the cap yet.
+	* Less than or equal here since we've already incremented the count for the thread that would be created
+	*/
+	if (numThreads <= MAX_THREADS) {
+		if (DEBUGGING) {
+			printf("Enough threads left...firing it up!");
+		}
+		sem_post(&lock);
+		
+		setcontext(&newCont);
+
+		// setcontext doesn't return on success
+		return FAILURE;
+	}
+
+	// Otherwise we'll need to put this guy into the queue to wait until someone else is done
+	Node* n = initNode(&newCont, pri_num, t++);
+	addNode(n);
+	sem_post(&lock);
+}
+
+int setUpContext(ucontext_t ucp, void func()) {
+	if(getcontext(&ucp) == FAILURE) {
+		return FAILURE;
+	}
+	ucp.uc_link = NULL;
+	ucp.uc_stack.ss_sp = (void*) malloc(16384);
+	ucp.uc_stack.ss_size = 16384;
+	ucp.uc_stack.ss_flags = 0;
+	makecontext(&ucp, func, 0);
+
+	return 0;
+}
+
+int uthread_yield(int pri_num) {
+	if (initProp != TRUE) {
+		printf("ERROR: Threading library improperly started: system_init must be called first!");
+		return FAILURE;
+	}
+
+	// TODO
+
+}
 // ---------------------------------------------------------------
 
 
@@ -82,20 +147,19 @@ void system_init(int max_number_of_klt) {
 // QUEUE METHODS
 // ---------------------------------------------------------------
 void initQueue() {
-	head = initNode(NULL, 0, 0, NULL);
-	tail = initNode(NULL, 0, 0, NULL);
+	head = initNode(NULL, 0, 0);
+	tail = initNode(NULL, 0, 0);
 	head->next = tail;
 	tail->prev = head;
 
 	t = 0;
 }
 
-Node* initNode(ContextPtr context, int prio, int t, void (*f)()) {
+Node* initNode(ucontext_t* context, int prio, int t) {
 	Node* ret = (Node*) malloc(sizeof(Node));
 	ret->context = context;
 	ret->priority = prio;
 	ret->t = t;
-	ret->toRun = f;
 	ret->next = NULL;
 	ret->prev = NULL;
 	return ret;
@@ -115,7 +179,7 @@ Node* removeNode() {
 	Node* cur;
 	// Find the node with the lowest priority number. 
 	// Break ties by taking smaller t
-	if (head->next == NULL) {
+	if (head->next == tail) {
 		// Queue is empty
 		return NULL;
 	}
@@ -159,24 +223,4 @@ void printQueue() {
 void printNode(Node* n) {
 	printf("Node with t:%d\n", n->t);
 }
-
 // ---------------------------------------------------------------
-//int main(int argc, char** argv) {
-//	Node* n;
-//	int i;
-//	initQueue();
-//	t = 1;
-//	
-//	for (i = 0; i < 2; ++i) {
-//		n = initNode(NULL, 0, t++, NULL);
-//		addNode(n);
-//		printQueue();
-//		printf("\n");
-//	}
-//
-//	n = removeNode();
-//
-//	free(n);
-//
-//	printf("");
-//}
