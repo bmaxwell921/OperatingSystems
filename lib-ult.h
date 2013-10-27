@@ -1,3 +1,7 @@
+/*
+* Header file for the Threading Library
+*/
+
 #ifndef LIB_ULT_H_INCLUDED
 #define LIB_ULT_H_INCLUDED
 

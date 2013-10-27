@@ -1,4 +1,8 @@
-#include "lib-ult.char"
+/*
+* Basic class used for testing the threading library
+*/
+
+#include "lib-ult.c"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -7,7 +11,7 @@ void runSecond();
 void runThird();
 
 int main(int argc, char** argv) {
-	system_init(0	);
+	system_init(1);
 	uthread_create(runFirst, 1);
 	uthread_create(runSecond, 2);
 	uthread_create(runThird, 2);

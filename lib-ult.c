@@ -1,3 +1,9 @@
+
+/*
+* A library for scheduling user threads on kernal threads. This library uses priority scheduling
+* based first on the priority of a given thread and then on the order the threads arrived.
+* @author Brandon Maxwell
+*/
 #define _GNU_SOURCE
 #include "lib-ult.h"
 #include <sched.h>
@@ -9,7 +15,7 @@
 #define FALSE 0
 #define FAILURE -1
 
-int DEBUGGING = 1;
+int DEBUGGING = 0;
 
 /*
 * TYPEDEFS
