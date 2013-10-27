@@ -47,10 +47,8 @@ void printQueue();
 void printNode(Node* n);
 
 /* Runs the function on an available kernal thread */
-void runFunction(void (*func)());
+int runKernalThread(void* arg);
 
-/* Wrapper function used to match clone's first argument */
-int wrapperFunc(void* func());
 /* --------------------------------------------------------------- */
 
 /*
@@ -59,8 +57,11 @@ int wrapperFunc(void* func());
 */
 int STACK_SIZE = 16384;
 
+/* Used to lock the queue */
+sem_t queueLock;
+
 /* Used to lock number of threads */
-sem_t lock;
+sem_t threadsLock;
 
 int MAX_THREADS;
 int numThreads;
@@ -82,73 +83,77 @@ int initProp = FALSE;
 
 void system_init(int max_number_of_klt) {
 	if (max_number_of_klt < 1) {
-		printf("ERROR: max_number_of_klt was out of bounds: %d", 
+		printf("ERROR: max_number_of_klt was out of bounds: %d\n", 
 			max_number_of_klt);
-		return;
+		exit(EXIT_FAILURE);
 	}
 
-	sem_init(&lock, 0, 1);
+	if (initProp == TRUE) {
+		printf("ERROR: uthread library has already been initialized.");
+		exit(EXIT_FAILURE);
+	}
+	initProp = TRUE;
+
+	sem_init(&queueLock, 0, 1);
+	sem_init(&threadsLock, 0 , 1);
 
 	MAX_THREADS = max_number_of_klt;
 	numThreads = 0;
-
 	initQueue();	
-
-	initProp = TRUE;
 }
 
 int uthread_create(void func(), int pri_num) {
-	/* Context we'll use for the function */
 	Node* n;
 
 	if (initProp != TRUE) {
-		printf("ERROR: Threading library improperly started: system_init must be called first!");
+		printf("ERROR: Threading library improperly started: system_init must be called first!\n");
 		return FAILURE;
 	}
 
+	/* Add this new function into the queue*/
+	n = initNode(pri_num);
+	makecontext(n->context, func, 0);
+	
 	/* Lock our fields */
-	sem_wait(&lock);
+	sem_wait(&queueLock);
+	addNode(n);
+	sem_wait(&threadsLock);
 
 	/*
 	* Go ahead and run the function if we haven't hit the cap yet.
 	*/
 	if (numThreads < MAX_THREADS) {
+		void* stack;
 		++numThreads;
-		sem_post(&lock);
+		sem_post(&queueLock);
 		
-		runFunction(func);
-
+		stack = malloc(STACK_SIZE); 
+		stack += STACK_SIZE - 1;
+		clone(runKernalThread, stack, CLONE_VM | CLONE_FILES, NULL);
+		sem_post(&threadsLock);
 		return 0;
 	}
 
-	/* Otherwise we'll need to put this guy into the queue to wait until someone else is done */
-	n = initNode(pri_num);
-	makecontext(n->context, func, 0);
-	addNode(n);
-	sem_post(&lock);
+	sem_post(&queueLock);
+	sem_post(&threadsLock);
 	return 0;
 }
 
-void runFunction(void (*func)()) {
-	void* stack = malloc(STACK_SIZE); 
-	stack += STACK_SIZE - 1;
+int runKernalThread(void* arg) {
+	Node* run;
+	
+	sem_wait(&queueLock);
+	run = removeNode();
+	sem_post(&queueLock);
 
-	/*
-	* clone's first parameter is
-	*	int (*func)() 
-	* but func comes in as 
-	*	void (*func)()
-	* so we need to wrap up the function call into another method. 
-	* NOTE: Doing this causes a warning, but when I run it everything works fine.
-	* I'd rather do this than have to rework my queue to match the many2one-mappings.c file
-	*/
+	if (run == NULL) {
+		sem_wait(&threadsLock);
+		--numThreads;
+		sem_post(&threadsLock);
+		exit(EXIT_SUCCESS);
+	}
 
-	clone(wrapperFunc, stack, CLONE_VM | CLONE_FILES, func);
-}
-
-int wrapperFunc(void* func()) {
-	func();
-	return 0;
+	setcontext(run->context);
 }
 
 int uthread_yield(int pri_num) {
@@ -166,13 +171,13 @@ int uthread_yield(int pri_num) {
 	*/
 	n = initNode(pri_num);
 
-	sem_wait(&lock);
+	sem_wait(&queueLock);
 	addNode(n);
 
 	/* Get the context with the lowest priority number so we can run it */
 	nextNode = removeNode();
 
-	sem_post(&lock);
+	sem_post(&queueLock);
 
 	/* Then run it, updating ucp so when we get back to that context we start at the return */
 	return swapcontext(n->context, nextNode->context);
@@ -183,25 +188,23 @@ void uthread_exit() {
 
 	if (initProp != TRUE) {
 		printf("ERROR: Threading library improperly started: system_init must be called first!");
-		return;
+		exit(EXIT_FAILURE);
 	}
 
-	sem_wait(&lock);
+	sem_wait(&queueLock);
 	/* Get the next thing to run */
 	n = removeNode();
+	sem_post(&queueLock);
 
+	sem_wait(&threadsLock);
 	/* Make sure to update numThreads */
 	--numThreads;
+	sem_post(&threadsLock);
 
 	/* Nothing more to run */
 	if (n == NULL) {
-		if (DEBUGGING) {
-			printf("\tDEBUG: There was nothing left to run.\n");
-		}
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
-
-	sem_post(&lock);
 
 	setcontext(n->context);
 }
