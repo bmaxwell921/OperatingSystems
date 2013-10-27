@@ -114,9 +114,6 @@ int uthread_create(void func(), int pri_num) {
 	*/
 	if (numThreads < MAX_THREADS) {
 		++numThreads;
-		if (DEBUGGING) {
-			printf("\tDEBUG: Enough threads left...firing it up!\n");
-		}
 		sem_post(&lock);
 		
 		runFunction(func);
@@ -124,9 +121,6 @@ int uthread_create(void func(), int pri_num) {
 		return 0;
 	}
 
-	if (DEBUGGING) {
-		printf("\tDEBUG: Not enough threads left, throwing it in the queue\n");
-	}
 	/* Otherwise we'll need to put this guy into the queue to wait until someone else is done */
 	n = initNode(pri_num);
 	makecontext(n->context, func, 0);
@@ -178,11 +172,6 @@ int uthread_yield(int pri_num) {
 	/* Get the context with the lowest priority number so we can run it */
 	nextNode = removeNode();
 
-	if (DEBUGGING) {
-		printf("\tDEBUG: Should start running:\n\t");
-		printNode(n);
-	}
-
 	sem_post(&lock);
 
 	/* Then run it, updating ucp so when we get back to that context we start at the return */
@@ -210,11 +199,6 @@ void uthread_exit() {
 			printf("\tDEBUG: There was nothing left to run.\n");
 		}
 		exit(0);
-	}
-
-	if (DEBUGGING) {
-		printf("\tDEBUG: Running something new:\n\t");
-		printNode(n);
 	}
 
 	sem_post(&lock);
@@ -312,6 +296,5 @@ void printQueue() {
 
 void printNode(Node* n) {
 	printf("Node with priority:%d and t:%d\n", n->priority, n->t);
-	/* printf("Context is null?:%d\n", n->context); */
 }
 /* --------------------------------------------------------------- */
