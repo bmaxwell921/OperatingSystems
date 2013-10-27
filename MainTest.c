@@ -29,7 +29,7 @@ void runSecond() {
 }
 
 void runThird() {
-	printf("Running in runThrid now.\n");
+	printf("Running in runThird now.\n");
 	printf("IT FINALLY WORKED!");
 
 	printf("Finishing runThird\n");
