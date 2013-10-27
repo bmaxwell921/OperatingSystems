@@ -39,16 +39,20 @@ Node* initNode(ucontext_t* context, int prio, int t);
 /* Adds the given Node to the list starting with head */
 void addNode(Node* n);
 
-/* Removes the node with the */
+/* Removes the node with the lowest priority number*/
 Node* removeNode();
 
 /* Prints the Queue to the console */
 void printQueue();
 void printNode(Node* n);
 
+/* Gets the current context and sets it up to run f */
 int setUpContext(ucontext_t ucp, void (*f)());
+
+/* Runs the function on an available kernal thread */
 void runFunction(void (*func)());
 
+/* Wrapper function used to match clone's first argument */
 int wrapperFunc(void* func());
 /* --------------------------------------------------------------- */
 
@@ -105,7 +109,7 @@ int uthread_create(void func(), int pri_num) {
 		return FAILURE;
 	}
 
-	/* lock the number of threads */
+	/* Lock our fields */
 	sem_wait(&lock);
 
 	/*
@@ -130,6 +134,7 @@ int uthread_create(void func(), int pri_num) {
 	if(setUpContext(newCont, func) == FAILURE) {
 		return FAILURE;
 	}
+
 	n = initNode(&newCont, pri_num, t);
 	addNode(n);
 	sem_post(&lock);
@@ -173,36 +178,69 @@ int uthread_yield(int pri_num) {
 	ucontext_t ucp;
 	ucontext_t* runNext;
 	Node* n;
-	int ret = 0;
 
 	if (initProp != TRUE) {
 		printf("ERROR: Threading library improperly started: system_init must be called first!");
 		return FAILURE;
 	}
 
-	/* Get the context with the lowest priority number so we can run it */
-	n = removeNode();
-
-	if (DEBUGGING) {
-		printNode(n);
+	/* 
+	* Get the current context and put it into the queue.
+	* This way we never need to worry about the queue being empty.
+	*/
+	if (getcontext(&ucp) == FAILURE) {
+		return FAILURE;
 	}
-	
-	/* Get the current context and put it into the queue */
-	ret = getcontext(&ucp);
+
+	sem_wait(&lock);
 
 	n = initNode(&ucp, pri_num, t);
 	addNode(n);
 
+	/* Get the context with the lowest priority number so we can run it */
+	n = removeNode();
+
 	/* TODO free n here to prevent a memory leak? */
 	runNext = n->context;
-	n->context = NULL;
-	/* free(n); */
+	/* n->context = NULL;
+	* free(n);
+	*/
 
-	/* Then run it */
-	setcontext(runNext);
 
-	/* if setcontext was successful it doesn't return */
-	return FAILURE;
+	if (DEBUGGING) {
+		printf("Should start running:\n\t");
+		printNode(n);
+	}
+
+	sem_post(&lock);
+
+	/* Then run it, updating ucp so when we get back to that context we start at the return */
+	if (swapcontext(&ucp, n->context) == FAILURE) {
+		return FAILURE;
+	}
+
+	/* A successful run of swapcontext shouldn't return until runNext's process completes*/
+	return 0;
+}
+
+void uthread_exit() {
+	Node* n;
+
+	sem_wait(&lock);
+	/* Get the next thing to run */
+	n = removeNode();
+
+	/* Make sure to update numThreads */
+	--numThreads;
+
+	/* Nothing more to run */
+	if (n == NULL) {
+		return;
+	}
+
+	sem_post(&lock);
+
+	setcontext(n->context);
 }
 /* --------------------------------------------------------------- */
 

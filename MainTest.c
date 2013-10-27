@@ -13,11 +13,10 @@ int main(int argc, char** argv) {
 void runFirst() {
 	printf("Running in runFirst right now\n");
 	uthread_create(runSecond, 2);
-	uthread_yield(3);
+	printf("result of yield:%d\n", uthread_yield(3));
 	printf("Back in runFirst!\n");
 }
 
 void runSecond() {
 	printf("Running in runSecond now, hopefully after the switch\n");
-	exit(-1);
 }

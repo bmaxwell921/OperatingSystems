@@ -33,7 +33,7 @@ int uthread_yield(int pri_num);
 /*
 * Calling thread ends its execution. Scheduler should pick one of the ready threads
 * to run on the kernal thread that used to be occupied by the calling thread. If there
-* are no other user threads ready to run, the kernal thready should exit.
+* are no other user threads ready to run, the kernal thread should exit.
 */
 void uthread_exit();
 
