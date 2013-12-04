@@ -135,6 +135,8 @@ public class UserProcess {
 			// Simulate the memory access, log success
 			VirtualMemLogger.logSuccessfulAccess(curInfo);
 		}
+		
+		VirtualMemLogger.logProcessEnds(this.myInfo);
 	}
 	
 	private boolean isPageFault(int pageNum) {
