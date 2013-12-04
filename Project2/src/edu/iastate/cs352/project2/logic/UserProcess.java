@@ -51,6 +51,8 @@ public class UserProcess {
 		// TODO see blah project
 //		offsetMask = (1 << ((int) Math.log(PAGE_SIZE)) + 1) - 1;
 //		pageNumberMask = ~offsetMask;
+		offsetMask = 0;
+		pageNumberMask = 0;
 	}
 	
 	public void readAddresses() {
