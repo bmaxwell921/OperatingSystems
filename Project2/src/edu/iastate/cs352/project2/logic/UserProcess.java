@@ -15,17 +15,42 @@ import edu.iastate.cs352.project2.info.ThreadInfo;
  */
 public class UserProcess {
 
-	private static final String FILE_NAME_PREPEND = "address_";
+	private final String FILE_NAME_PREPEND = "address_";
+	
+	private final int NUM_PAGES;
+	
+	private final int PAGE_SIZE;
 	
 	// The info associated with this process
-	private ThreadInfo myInfo;
+	private final ThreadInfo myInfo;
 	
 	// The list of addresses for this process to access
 	private Queue<Integer> addresses;
 	
-	public UserProcess(int processId) {
-		myInfo = new ThreadInfo(processId);
-		addresses = new LinkedList<Integer>();
+	// THE PAGE TABLE! O.o
+	private Integer[] pageTable;
+	
+	private final int offsetMask;
+	
+	private final int pageNumberMask;
+	
+	/**
+	 * Constructs a new User process with the given information
+	 * @param processId
+	 * @param pageSize
+	 * @param numPages
+	 */
+	public UserProcess(int processId, int pageSize, int numPages) {
+		this.PAGE_SIZE = pageSize;
+		this.NUM_PAGES = numPages;
+		
+		this.myInfo = new ThreadInfo(processId);
+		this.pageTable = new Integer[numPages];
+		this.addresses = new LinkedList<Integer>();
+		
+		// TODO see blah project
+//		offsetMask = (1 << ((int) Math.log(PAGE_SIZE)) + 1) - 1;
+//		pageNumberMask = ~offsetMask;
 	}
 	
 	public void readAddresses() {
@@ -52,5 +77,13 @@ public class UserProcess {
 	 */
 	public void run() {
 		// TODO
+	}
+	
+	private int calcPageNumber(int address) {
+		return -1;
+	}
+	
+	private int calcOffset(int address) {
+		return -1;
 	}
 }
