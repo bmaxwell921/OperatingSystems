@@ -12,7 +12,7 @@ public class AddressInfo {
 	private int pageNumber;
 	private int offset;
 	private int frameNumber;
-	
+
 	private ThreadInfo threadInfo;
 	
 	public AddressInfo(int address, int pageNumber, int offset, int frameNumber, ThreadInfo threadInfo) {
@@ -37,6 +37,10 @@ public class AddressInfo {
 
 	public int getFrameNumber() {
 		return frameNumber;
+	}
+	
+	public void setFrameNumber(int frameNumber) {
+		this.frameNumber = frameNumber;
 	}
 
 	public ThreadInfo getThreadInfo() {

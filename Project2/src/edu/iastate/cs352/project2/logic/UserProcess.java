@@ -74,11 +74,11 @@ public class UserProcess {
 		}
 	}
 	
+	/*
+	 * Read all of the addresses into memory to avoid dealing with the overhead
+	 * for reading a file
+	 */
 	public void readAddresses() {
-		/*
-		 * Read all of the addresses into memory to avoid dealing with the overhead
-		 * for reading a file
-		 */
 		try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME_PREPEND + myInfo.getProcessId()))) {
 			String read = "";
 			while ((read = br.readLine()) != null) {
@@ -97,38 +97,47 @@ public class UserProcess {
 	 * Starts the execution of this process
 	 */
 	public void run() {
-		// We'll remove addresses from the queue once we know they're hits
+		/*
+		 * Remove each address from the queue, even if it's a miss
+		 * after swapping in the page we just pretend like we redid the 
+		 * instruction
+		 */
 		while (!addresses.isEmpty()) {
-			int curAddr = addresses.peek();
+			int curAddr = addresses.poll();;
 			int pageNum = calcPageNumber(curAddr);
 			int offset = calcOffset(curAddr);
 			int frame = pageTable[pageNum];
 			AddressInfo curInfo = new AddressInfo(curAddr, pageNum, offset, frame, this.myInfo);
 			
 			// TODO handle other threads messin with my shit
-			if (!pageFault(pageNum)) {
+			if (!isPageFault(pageNum)) {
 				VirtualMemLogger.logSuccessfulAccess(curInfo);
 				// Actually remove the address since we only peeked before
-				addresses.poll();
 				continue;
 			}
 			
+			VirtualMemLogger.logPageFault(curInfo);
+			
 			// It was a failure so we need to load the page into memory
 			frame = MemoryManagmentUnit.loadPage(curAddr, this.myInfo);
+			
+			VirtualMemLogger.logIssueSwap(curInfo);
+			
+			// Pretend like it's being loaded into memory
 			waitForLoad();
+			
+			VirtualMemLogger.logCompletedSwap(curInfo, frame);
 			
 			// update my page table with the new value
 			pageTable[pageNum] = frame;
-			
-			/*
-			 * End of loop, we'll try the address again, next time it 
-			 * should be a hit since we just pulled the frame into
-			 * memory
-			 */
+			curInfo.setFrameNumber(frame);
+
+			// Simulate the memory access, log success
+			VirtualMemLogger.logSuccessfulAccess(curInfo);
 		}
 	}
 	
-	private boolean pageFault(int pageNum) {
+	private boolean isPageFault(int pageNum) {
 		return pageTable[pageNum] != EMPTY_PAGE;
 	}
 	
@@ -144,7 +153,7 @@ public class UserProcess {
 	}
 	
 	private int calcPageNumber(int address) {
-		// The bitwise operation >>> shifts in 0's on the right
+		// The bitwise operation >>> shifts in 0's on the left
 		return (address & PAGE_NUM_MASK) >>> logBase2(PAGE_SIZE);
 	}
 	
