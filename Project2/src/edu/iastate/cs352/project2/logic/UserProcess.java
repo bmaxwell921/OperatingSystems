@@ -115,7 +115,7 @@ public class UserProcess {
 			AddressInfo curInfo = new AddressInfo(curAddr, pageNum, offset, frame, this.myInfo);
 			
 			// TODO handle other threads messin with my shit
-			if (!isPageFault(pageNum)) {
+			if (!isPageFault(pageNum) && mmu.frameIsOwnedBy(frame, this.myInfo)) {
 				VirtualMemLogger.logSuccessfulAccess(curInfo);
 				// Actually remove the address since we only peeked before
 				continue;
@@ -140,6 +140,8 @@ public class UserProcess {
 			// Simulate the memory access, log success
 			VirtualMemLogger.logSuccessfulAccess(curInfo);
 		}
+		
+		// TODO remove all of this thread's pages in memory?
 		
 		VirtualMemLogger.logProcessEnds(this.myInfo);
 	}

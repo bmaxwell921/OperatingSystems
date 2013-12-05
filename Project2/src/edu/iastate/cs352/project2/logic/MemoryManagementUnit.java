@@ -1,5 +1,8 @@
 package edu.iastate.cs352.project2.logic;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.iastate.cs352.project2.info.ThreadInfo;
 
 /**
@@ -8,9 +11,18 @@ import edu.iastate.cs352.project2.info.ThreadInfo;
  *
  */
 public class MemoryManagementUnit {
+	// TODO once a process terminates remove all its pages?? - Seems logical to me
+	
+	
+	// 'Physical memory'
+	private final Frame[] mainMemory;
+	
+	// Stack used in LRU replacement
+	private final List<Integer> frameRefStack;
 	
 	public MemoryManagementUnit(int frames) {
-		
+		mainMemory = new Frame[frames];
+		frameRefStack = new ArrayList<Integer>();
 	}
 	
 	/**
@@ -24,6 +36,11 @@ public class MemoryManagementUnit {
 	public synchronized int loadPage(int address, ThreadInfo info) {
 		// TODO
 		return 0;
+	}
+	
+	public synchronized boolean frameIsOwnedBy(int frame, ThreadInfo info) {
+		return (frame >= 0 && frame < mainMemory.length) && // Valid frame number
+				mainMemory[frame] != null && mainMemory[frame].equals(info); //Actually belongs to given thread
 	}
 	
 	/**
