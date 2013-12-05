@@ -114,7 +114,6 @@ public class UserProcess {
 			int frame = pageTable[pageNum];
 			AddressInfo curInfo = new AddressInfo(curAddr, pageNum, offset, frame, this.myInfo);
 			
-			// TODO handle other threads messin with my shit
 			if (!isPageFault(pageNum) && mmu.frameIsOwnedBy(frame, this.myInfo)) {
 				VirtualMemLogger.logSuccessfulAccess(curInfo);
 				// Actually remove the address since we only peeked before
