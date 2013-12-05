@@ -3,6 +3,7 @@ package edu.iastate.cs352.project2.logic;
 import java.util.ArrayList;
 import java.util.List;
 
+import edu.iastate.cs352.project2.info.AddressInfo;
 import edu.iastate.cs352.project2.info.ThreadInfo;
 import edu.iastate.cs352.project2.logging.VirtualMemLogger;
 
@@ -12,8 +13,6 @@ import edu.iastate.cs352.project2.logging.VirtualMemLogger;
  *
  */
 public class MemoryManagementUnit {
-	// TODO once a process terminates remove all its pages?? - Seems logical to me. May not have to since 
-	// they'll eventually be replaced anyway
 	private static final int NO_FREE = -1;
 	private static final int STACK_BOTTOM = 0;
 	
@@ -32,37 +31,38 @@ public class MemoryManagementUnit {
 	 * Loads the required page into main memory using LRU if there 
 	 * isn't a free frame
 	 * @param address
-	 * @param info
+	 * @param tInfo
 	 * @return
 	 * 			the frame number the page was loaded into
 	 */
-	public synchronized int loadPage(int address, ThreadInfo info) {
+	public synchronized int loadPage(AddressInfo aInfo) {
 		int freeFrame = findFreeFrame();
-		
+		ThreadInfo tInfo = aInfo.getThreadInfo();
 		// Success case
 		if (freeFrame != NO_FREE) {
-			VirtualMemLogger.logFoundFrame(info, freeFrame);
+			VirtualMemLogger.logFoundFrame(tInfo, freeFrame);
+			mainMemory[freeFrame] = new Frame(tInfo, aInfo.getPageNumber());
+			updateFrameReferenceStack(freeFrame);
 			return freeFrame;
 		}
 		
 		// get the frame to replace
 		int replaceFrame = getVictim();
 		
-		VirtualMemLogger.logReplaceFrame(info, replaceFrame);
+		VirtualMemLogger.logReplaceFrame(tInfo, replaceFrame);
 		
 		// 'swap' it in
-		mainMemory[replaceFrame] = new Frame(info);
+		mainMemory[replaceFrame] = new Frame(tInfo, aInfo.getPageNumber());
 		
 		// Make sure the replaced frame doesn't get removed again soon
 		updateFrameReferenceStack(replaceFrame);
-		
 		return replaceFrame;
 	}
 	
-	public synchronized boolean frameIsOwnedBy(int frame, ThreadInfo info) {
+	public synchronized boolean frameHasCorrectPage(int frame, int pageNumber, ThreadInfo info) {
 		
 		boolean owned = (frame >= 0 && frame < mainMemory.length) && // Valid frame number
-				mainMemory[frame] != null && mainMemory[frame].equals(info); //Actually belongs to given thread
+				mainMemory[frame] != null && mainMemory[frame].equals(new Frame(info, pageNumber)); //Actually belongs to given thread
 		
 		// Someone successfully accessed this frame
 		if (owned) {
@@ -116,9 +116,11 @@ public class MemoryManagementUnit {
 	 */
 	private class Frame {
 		private ThreadInfo owningThread;
+		private int expectedPage;
 		
-		public Frame(ThreadInfo info) {
+		public Frame(ThreadInfo info, int expectedPage) {
 			this.owningThread = info;
+			this.expectedPage = expectedPage;
 		}
 
 		@Override
@@ -126,6 +128,7 @@ public class MemoryManagementUnit {
 			final int prime = 31;
 			int result = 1;
 			result = prime * result + getOuterType().hashCode();
+			result = prime * result + expectedPage;
 			result = prime * result
 					+ ((owningThread == null) ? 0 : owningThread.hashCode());
 			return result;
@@ -141,6 +144,8 @@ public class MemoryManagementUnit {
 				return false;
 			Frame other = (Frame) obj;
 			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (expectedPage != other.expectedPage)
 				return false;
 			if (owningThread == null) {
 				if (other.owningThread != null)

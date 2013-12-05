@@ -70,6 +70,8 @@ public class UserProcess {
 		 */
 		OFFSET_MASK = (1 << (int) logBase2(PAGE_SIZE)) - 1;
 		PAGE_NUM_MASK = ~OFFSET_MASK;
+		
+		readAddresses();
 	}
 	
 	// fills in the page table as empty
@@ -83,7 +85,7 @@ public class UserProcess {
 	 * Read all of the addresses into memory to avoid dealing with the overhead
 	 * for reading a file
 	 */
-	public void readAddresses() {
+	private void readAddresses() {
 		try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME_PREPEND + myInfo.getProcessId()))) {
 			String read = "";
 			while ((read = br.readLine()) != null) {
@@ -113,17 +115,15 @@ public class UserProcess {
 			int offset = calcOffset(curAddr);
 			int frame = pageTable[pageNum];
 			AddressInfo curInfo = new AddressInfo(curAddr, pageNum, offset, frame, this.myInfo);
-			
-			if (!isPageFault(pageNum) && mmu.frameIsOwnedBy(frame, this.myInfo)) {
+			if (!isPageFault(pageNum) && mmu.frameHasCorrectPage(frame, pageNum, this.myInfo)) {
 				VirtualMemLogger.logSuccessfulAccess(curInfo);
-				// Actually remove the address since we only peeked before
 				continue;
 			}
 			
 			VirtualMemLogger.logPageFault(curInfo);
 			
 			// It was a failure so we need to load the page into memory
-			frame = mmu.loadPage(curAddr, this.myInfo);
+			frame = mmu.loadPage(curInfo);
 			
 			VirtualMemLogger.logIssueSwap(curInfo);
 			
@@ -140,13 +140,11 @@ public class UserProcess {
 			VirtualMemLogger.logSuccessfulAccess(curInfo);
 		}
 		
-		// TODO remove all of this thread's pages in memory?
-		
 		VirtualMemLogger.logProcessEnds(this.myInfo);
 	}
 	
 	private boolean isPageFault(int pageNum) {
-		return pageTable[pageNum] != EMPTY_PAGE;
+		return pageTable[pageNum] == EMPTY_PAGE;
 	}
 	
 	private void waitForLoad() {

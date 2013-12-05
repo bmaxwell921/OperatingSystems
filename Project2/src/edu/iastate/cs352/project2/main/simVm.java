@@ -35,7 +35,6 @@ public class simVm {
 			overwriteValues();
 		}
 		
-		// TODO set up MemoryManagementUnit
 		MemoryManagementUnit mmu = new MemoryManagementUnit(numFrames);
 		
 		// FIRE 'EM UP!
@@ -53,8 +52,8 @@ public class simVm {
 
 	private static void overwriteValues() {
 		size = 8;
-		numPages = 2;
-		numFrames = 2;
-		numUserProc	= 1;
+		numPages = 3;
+		numFrames = 4;
+		numUserProc	= 2;
 	}
 }
