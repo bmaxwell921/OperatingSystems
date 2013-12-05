@@ -40,13 +40,16 @@ public class UserProcess {
 	
 	private final int PAGE_NUM_MASK;
 	
+	// Object used to interact with main memory
+	private MemoryManagementUnit mmu;
+	
 	/**
 	 * Constructs a new User process with the given information
 	 * @param processId
 	 * @param pageSize
 	 * @param numPages
 	 */
-	public UserProcess(int processId, int pageSize, int numPages) {
+	public UserProcess(int processId, int pageSize, int numPages, MemoryManagementUnit mmu) {
 		this.PAGE_SIZE = pageSize;
 		this.NUM_PAGES = numPages;
 		
@@ -54,6 +57,8 @@ public class UserProcess {
 		this.addresses = new LinkedList<Integer>();
 		this.pageTable = new Integer[numPages];
 		initPageTable();
+		
+		this.mmu = mmu;
 		
 		/*
 		 *  Page sizes come in as a power of 2. The power is the number
@@ -119,7 +124,7 @@ public class UserProcess {
 			VirtualMemLogger.logPageFault(curInfo);
 			
 			// It was a failure so we need to load the page into memory
-			frame = MemoryManagmentUnit.loadPage(curAddr, this.myInfo);
+			frame = mmu.loadPage(curAddr, this.myInfo);
 			
 			VirtualMemLogger.logIssueSwap(curInfo);
 			

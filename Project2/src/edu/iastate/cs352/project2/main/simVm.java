@@ -1,5 +1,6 @@
 package edu.iastate.cs352.project2.main;
 
+import edu.iastate.cs352.project2.logic.MemoryManagementUnit;
 import edu.iastate.cs352.project2.logic.UserProcess;
 
 /**
@@ -35,10 +36,11 @@ public class simVm {
 		}
 		
 		// TODO set up MemoryManagementUnit
+		MemoryManagementUnit mmu = new MemoryManagementUnit(numFrames);
 		
 		// FIRE 'EM UP!
 		for (int i = 0; i < numUserProc; ++i) {
-			final UserProcess proc = new UserProcess(i, size, numPages);
+			final UserProcess proc = new UserProcess(i, size, numPages, mmu);
 			new Thread(new Runnable() {
 				@Override
 				public void run() {
