@@ -11,7 +11,7 @@ import edu.iastate.cs352.project2.logic.UserProcess;
 public class simVm {
 
 	private static int size, numPages, numFrames, numUserProc;
-	private static final boolean DEBUGGING = true;
+	private static final boolean DEBUGGING = false;
 	
 	public static void main(String args[]) {
 		if (args.length != 4) {
